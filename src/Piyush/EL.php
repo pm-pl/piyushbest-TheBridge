@@ -170,7 +170,7 @@ if($arena->onGame($p)) {
             }
 
 
-            if ($arena->onGame($entity) && $arena->phase == 0) {
+            if ($arena->phase == 0) {
                 $event->cancel();
                 if ($event->getCause() === $event::CAUSE_VOID) {
                     if (isset($arena->data["lobby"]) && $arena->data["lobby"] != null) {
@@ -186,7 +186,7 @@ if($arena->onGame($p)) {
                     unset($arena->preventfalldamage[$entity->getName()]);
                 }
             }
-                if (($arena->onGame($entity) && $arena->phase == 1 && $event->getCause() == EntityDamageEvent::CAUSE_FALL && ($arena->scheduler->crt > -3))) {
+                if ($arena->phase == 1 && $event->getCause() == EntityDamageEvent::CAUSE_FALL && ($arena->scheduler->crt > -3)) {
                     $event->cancel();
                 }
             if ($event->getCause() === $event::CAUSE_VOID) {
@@ -277,7 +277,7 @@ if($arena->onGame($p)) {
                  {
                 $a = $event->getFrom()->getWorld();
                 $b = $event->getTo()->getWorld();
-                if ($a !== $b){
+                if ($b->getFolderName() != $arena->world->getFolderName()){
                     $arena->leaveGame($e);
                     $e->sendMessage(TextFormat::RED . "THEBRIDGE >". TextFormat::AQUA."You Left The Game");
                 }
@@ -328,6 +328,7 @@ if($arena->onGame($p)) {
 
                 foreach ($arenas as $arena)
                     $arena->data["world"] = $args[1];
+$this->plugin->getServer()->getWorldManager()->getWorldByName($args[1])->setAutoSave(false);
                 break;
             case "spawn":
                 if(is_array($arena)) {
@@ -392,12 +393,12 @@ if($arena->onGame($p)) {
                 break;
             case "savelevel":
                 foreach ($arenas as $arena){
-                    if (!is_null($arena->world)) {
-                        $arena->reset->backupMap($arena->data["world"], $this->main->getDataFolder());
-                        $player->sendMessage("Level Saved");
-                    } else {
-                        $player->sendMessage("Set Level First");
+                    if ($arena->data["world"] == null) {
+                       $player->sendMessage("Set Level First");
+                        break;
                     }
+$arena->reset->backupMap($arena->data["world"], $this->main->getDataFolder());
+                        $player->sendMessage("Level Saved");
                 }
                 break;
             case "lobby":

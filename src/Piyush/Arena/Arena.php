@@ -22,6 +22,7 @@ use pocketmine\Server;
 use pocketmine\utils\TextFormat;
 use pocketmine\world\Position;
 use pocketmine\world\World;
+use jojoe77777\FormAPI\SimpleForm;
 
 
 
@@ -61,6 +62,7 @@ class Arena implements Listener
     public $blues = [];
     public $phase = 0;
     public $kills = [];
+public $lastDamage = [];
 
     public $gameStarted = false;
     /**
@@ -138,13 +140,11 @@ class Arena implements Listener
 
             $this->world = $this->plugin->getServer()->getWorldManager()->getWorldByName($this->data["world"]);
         } else {
-            if (is_null($this->world)) {
-                $this->setup = true;
-                $this->plugin->getLogger()->error("Disabling arena {$this->data["world"]}: level not found!");
-                $this->data["world"] = null;
-                return;
-            }
-
+         if($this->world == null){
+$this->setup = true;
+$this->data["world"] = null;
+return;
+}
         }
 
         if (!$this->plugin->getServer()->getWorldManager()->isWorldLoaded($this->data["world"])) {
@@ -177,6 +177,7 @@ class Arena implements Listener
         $this->playerss = [];
         $this->preventfalldamage = [];
         $this->deaths = [];
+        $this->lastDamage = [];
         $this->plugin->getServer()->getWorldManager()->getWorldByName($this->data["world"])->setAutoSave(false);
     }
 
@@ -185,20 +186,21 @@ class Arena implements Listener
 
         if(!$this->phase == 0){
             $player->sendMessage($this->getPrefix() ." Arena Is Started/Restarting");
-            return true;
+            return false;
         }
         if (count($this->players) == 8){
             $player->sendMessage($this->getPrefix() . " Lobby is Full");
-            return true;
+            return false;
         }
 
 
 
-
-        if ($this->onGame($player)) {
+foreach($this->plugin->arena as $arenas){
+        if ($arenas->onGame($player)) {
             $player->sendMessage($this->getPrefix() . "Your already ingame please leave the game first");
-            return true;
+            return false;
         }
+}
 
         array_push($this->playerss, $player->getName());
 
@@ -233,40 +235,42 @@ class Arena implements Listener
             $pos = $player->getPosition();
             $block = $player->getWorld()->getBlock($player->getPosition()->subtract(0, 1, 0));
             foreach ($this->players as $players) {
-                foreach ($this->redss as $redPlayer)
-                    foreach ($this->bluess as $bluePlayer)
+                foreach ($this->redss as $redPlayer){
+                    foreach ($this->bluess as $bluePlayer){
                         if ($this->onGame($players) && $this->phase == Arena::PHASE_GAME) {
                             if ($block->getId() == 234) {
                                 if (in_array($player->getName(), $this->reds)) {
                                     $this->tpRed($player);
                                     $player->sendMessage($this->getPrefix() . "Cannot jump on own Goal");
-                                    return;
+                                    return false;
                                 }
                                 if (in_array($player->getName(), $this->blues)) {
                                     $this->broadcastMessage(TextFormat::BLUE . $player->getName() . TextFormat::BLUE . "\nGoal", Arena::MSG_TITLE);
 
-                                    $this->tpBlue($bluePlayer, true);
-                                    $this->tpRed($redPlayer, true);
+                                    
+                                    $this->tpRed($player, true);
+                                    $this->tpBlue($player, true);
                                     $this->bluesp++;
-
+                                    return false;
                                 }
-                                return;
                             }
                             if ($block->getId() == 231) {
                                 if (in_array($player->getName(), $this->blues)) {
                                     $this->tpBlue($player);
                                     $player->sendMessage($this->getPrefix() . "Cannot jump on own Goal");
-                                    return;
+                                    return false;
                                 }
                                 if (in_array($player->getName(), $this->reds)) {
                                     $this->broadcastMessage(TextFormat::RED . $player->getName() . TextFormat::RED . "\nGoal", Arena::MSG_TITLE);
-
-                                    $this->tpRed($redPlayer, true);
-                                    $this->tpBlue($bluePlayer, true);
+                                    $this->tpBlue($player, true);
+                                    $this->tpRed($player, true);
+                                    
                                     $this->redsp++;
+                                    return false;
                                 }
-                                return;
                             }
+}
+}
                         }
             }
         }
@@ -304,6 +308,12 @@ class Arena implements Listener
                 }
                 break;
             default:
+                 if (in_array($player->getName(), $this->reds)) {
+                        unset($this->redss[$player->getName()]);
+                    }
+                    if (in_array($player->getName(), $this->blues)) {
+                        unset($this->bluess[$player->getName()]);
+                    }
                 unset($this->players[$player->getName()]);
                 unset($this->kills[array_search($player->getName(), $this->kills)]);
                 unset($this->deaths[array_search($player->getName(), $this->kills)]);
@@ -341,46 +351,73 @@ class Arena implements Listener
 
         $this->phase = self::PHASE_GAME;
         $players = [];
+        $blues = [];
+        $reds = [];
         $this->gameStarted = true;
         $this->scheduler->crt = 10;
         $this->scheduler->minustime = true;
         $this->scheduler->startMsg = true;
 
         foreach ($this->players as $player) {
+            foreach ($this->redss as $red) {
+    foreach ($this->bluess as $blue){
             $players[$player->getName()] = $player;
+        $reds[$red->getName()] = $red;
+        $blues[$blue->getName()] = $blue;
             $player->setGamemode(GameMode::SURVIVAL());
-            $player->getInventory()->clearAll(true);
+            $player->getInventory()->clearAll();
             $player->setImmobile(false);
             if(in_array($player->getName(), $this->reds)){
                 $this->tpRed($player);
-
-
             } elseif(in_array($player->getName(), $this->blues)){
                 $this->tpBlue($player);
 
             }
         }
-foreach ($this->redss as $red) {
-    foreach ($this->bluess as $blue){
-        $this->players = $players;
-        $blues = [];
-        $reds = [];
-        $reds[$red->getName()] = $red;
-        $blues[$blue->getName()] = $blue;
-    $this->bluess = $blues;
-    $this->redss = $reds;
-    $this->phase = 1;
+        
+
+         $this->players = $players;
+         $this->bluess = $blues;
+         $this->redss = $reds;
+         $this->phase = 1;
 }
 }
 }
 
 public function tpBlue(Player $player, bool $addGlass = false){
     if ($addGlass){
+        foreach ($this->bluess as $players){
         $this->scheduler->addGlassBlue();
         $this->scheduler->addMsg = true;
         $this->scheduler->minustime = true;
         $this->scheduler->crt = 5;
         $this->scheduler->startMsg = false;
+        $this->preventfalldamage[] = $players->getName();
+    $this->preventfalldamage[$players->getName()] = microtime(true);
+   $players->teleport(Position::fromObject(new \pocketmine\math\Vector3($this->data["spawnBlue"][2], $this->data["spawnBlue"][3], $this->data["spawnBlue"][4]), $this->plugin->getServer()->getWorldManager()->getWorldByName($this->data["spawnBlue"][1])));
+        $players->setHealth(20);
+        $inv = $players->getInventory();
+    $inv->setItem(0, (new ItemFactory())->get(ItemIds::WOODEN_SWORD));
+    $inv->setItem(1, (new ItemFactory())->get(ItemIds::BOW));
+    $inv->setItem(2, (new ItemFactory())->get(ItemIds::SHEARS));
+    $inv->setItem(3, (new ItemFactory())->get(ItemIds::WOOL, 11, 64));
+    $inv->setItem(4, (new ItemFactory())->get(ItemIds::WOOL, 11, 64));
+    $inv->setItem(8, (new ItemFactory())->get(ItemIds::ARROW, 0 , 10));
+    $h = VanillaItems::LEATHER_CAP();
+    $c = VanillaItems::LEATHER_TUNIC();
+    $l = VanillaItems::LEATHER_PANTS();
+    $b = VanillaItems::LEATHER_BOOTS();
+    $color = new Color(0, 0, 255);
+    $h->setCustomColor($color);
+    $c->setCustomColor($color);
+    $l->setCustomColor($color);
+    $b->setCustomColor($color);
+    $players->getArmorInventory()->setHelmet($h);
+    $players->getArmorInventory()->setChestplate($c);
+    $players->getArmorInventory()->setLeggings($l);
+    $players->getArmorInventory()->setBoots($b);
+        }
+        return;
     }
     $this->preventfalldamage[] = $player->getName();
     $this->preventfalldamage[$player->getName()] = microtime(true);
@@ -409,10 +446,40 @@ public function tpBlue(Player $player, bool $addGlass = false){
 }
     public function tpRed(Player $player, bool $addGlass = false){
         if ($addGlass){
+            foreach($this->redss as $players){
             $this->scheduler->addGlassRed();
             $this->scheduler->minustime = true;
             $this->scheduler->crt = 5;
             $this->scheduler->startMsg = false;
+            $this->preventfalldamage[] = $players->getName();
+        $this->preventfalldamage[$players->getName()] = microtime(true);
+        $players->teleport(Position::fromObject(new \pocketmine\math\Vector3($this->data["spawnRed"][2], $this->data["spawnRed"][3], $this->data["spawnRed"][4]), $this->plugin->getServer()->getWorldManager()->getWorldByName($this->data["spawnRed"][1])));
+        $players->setHealth(20);
+        $inv = $players->getInventory();
+
+
+        $inv->setItem(0, (new ItemFactory())->get(ItemIds::WOODEN_SWORD));
+        $inv->setItem(1, (new ItemFactory())->get(ItemIds::BOW));
+        $inv->setItem(2, (new ItemFactory())->get(ItemIds::SHEARS));
+        $inv->setItem(3, (new ItemFactory())->get(ItemIds::WOOL, 14, 64));
+        $inv->setItem(4, (new ItemFactory())->get(ItemIds::WOOL, 14, 64));
+        $inv->setItem(8, (new ItemFactory())->get(ItemIds::ARROW, 0 , 10));
+        $h = VanillaItems::LEATHER_CAP();
+        $c = VanillaItems::LEATHER_TUNIC();
+        $l = VanillaItems::LEATHER_PANTS();
+        $b = VanillaItems::LEATHER_BOOTS();
+        $color = new Color(255, 0, 0);
+        $h->setCustomColor($color);
+        $c->setCustomColor($color);
+        $l->setCustomColor($color);
+        $b->setCustomColor($color);
+
+        $players->getArmorInventory()->setHelmet($h);
+        $players->getArmorInventory()->setChestplate($c);
+        $players->getArmorInventory()->setLeggings($l);
+        $players->getArmorInventory()->setBoots($b);
+            }
+            return;
         }
         $this->preventfalldamage[] = $player->getName();
         $this->preventfalldamage[$player->getName()] = microtime(true);
@@ -484,8 +551,7 @@ public function checkWinRed() : bool
     public function selectTeamForm($player)
     {
         $inv = $player->getInventory();
-        $api = Server::getInstance()->getPluginManager()->getPlugin("FormAPI");
-        $form = $api->createSimpleForm(function (Player $player, int $data = null) {
+        $form = new SimpleForm(function (Player $player, int $data = null) {
             $result = $data;
             if ($result === null) {
                 return true;
@@ -546,7 +612,7 @@ public function checkWinRed() : bool
         $form->setTitle("§lTeam Selector");
         $form->addButton("§cRed Team §7(§a" . count($this->reds) . "§7/§a4§7)", 0, "textures/blocks/wool_colored_red");
         $form->addButton("§1Blue Team §7(§a" . count($this->blues) . "§7/§a4§7)", 0, "textures/blocks/wool_colored_blue");
-        $form->sendtoPlayer($player);
+        $form->sendToPlayer($player);
         return $form;
     }
 
@@ -606,7 +672,7 @@ public function checkWinRed() : bool
 
         if ($this->onGame($player)) {
             $player->getHungerManager()->setFood(20);
-            $event->cancel(true);
+            $event->cancel();
         }
     }
 

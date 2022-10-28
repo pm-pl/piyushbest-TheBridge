@@ -31,7 +31,7 @@ class NPC{
         $this->world["NPCWorld"] = $human->getWorld()->getFolderName();
         $this->world["NPCId"] = $human->getId();
         $this->plugin->getConfig()->setAll($this->world);
-        $this->plugin->getConfig()->save(true);
+        $this->plugin->getConfig()->save();
         $human->spawnToAll();
         $player->getWorld()->save(true);
     }

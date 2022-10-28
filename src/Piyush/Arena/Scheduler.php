@@ -83,12 +83,14 @@ class Scheduler extends Task
             case Arena::PHASE_GAME:
                 if ($this->plugin->checkWinRed()) $this->plugin->restart();
                 if ($this->plugin->checkWinBlue()) $this->plugin->restart();
+                $this->plugin->plugin->getServer()->getWorldManager()->getWorldByName($this->plugin->data["world"])->setAutoSave(false);
                 foreach ($this->plugin->players as $player) {
 
                     $this->onGameScore($player);
                 }
                 break;
             case Arena::PHASE_RESTART:
+$this->plugin->plugin->getServer()->getWorldManager()->getWorldByName($this->plugin->data["world"])->setAutoSave(false);
                 foreach ($this->plugin->players as $ignored){
 
                     if($this->restartTime >= 0) {
@@ -103,6 +105,8 @@ class Scheduler extends Task
                         if ($this->plugin->checkWinRed()){
                             $this->plugin->plugin->getServer()->broadcastMessage($this->plugin->getPrefix() . "Red Team Won The Game on " . $this->plugin->data["world"]);
                         }
+                        break;
+                    case 1:
                         foreach ($this->plugin->players as $player) {
                             $player->getEffects()->clear();
                             $this->plugin->leaveGame($player, false);
@@ -110,7 +114,6 @@ class Scheduler extends Task
                                 ScoreFactory::removeObjective($player);
                             }
                         }
-                        break;
                     case -1:
                         $this->plugin->world = $this->plugin->reset->resetMap($this->plugin->data["world"]);
                         break;
@@ -140,15 +143,13 @@ class Scheduler extends Task
 if(!is_null($humans)){
             foreach ($humans as $human)
                 if ($human instanceof NPChuman) {
-                    if(!is_null($human)){
                     $ran = $this->plugin->plugin->emptyArenaChooser->getRandomArena();
-                        if (!empty($ran->data["world"])) {
+                        if (!is_null($ran)) {
                             $human->setNameTag(TextFormat::RED . "TheBridge \n". TextFormat::AQUA . $ran->data["world"] . "\n" . TextFormat::BLUE . count($ran->players) . "/8");
                             $human->setNameTagAlwaysVisible();
-                        } elseif (empty($ran->data["world"])){
+                        } else{
                             $human->setNameTag(TextFormat::RED . "THEBRIDGE\n" . TextFormat::AQUA . "ARENAS NOT FOUND");
                         }
-                    }
                 }
         }
 }
